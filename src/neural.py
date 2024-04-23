@@ -13,7 +13,8 @@ class NeuralLanguageModel(nn.Module):
         vocab_sz,
         embedding_size,
         lin_size,
-        context_size = 3
+        context_size = 3,
+        nonlin = nn.functional.tanh,
     ):
         super().__init__()
 
@@ -24,11 +25,13 @@ class NeuralLanguageModel(nn.Module):
         self.embedding = nn.Embedding(self.vocab_sz, self.embedding_size)
         self.lin1 = nn.Linear(self.context_size * embedding_size, self.lin_size)
         self.lin2 = nn.Linear(self.lin_size, self.vocab_sz)
+        self.nonlin = nonlin
 
     def forward(
         self,
         x, # [idx_1, idx_2, idx_3, ..., idx_context_size]
     ):
+        assert len(x.shape) == 2 and x.shape[1] == self.context_size
         #c1 = self.embedding(x[0])
         #c2 = self.embedding(x[1])
         #c3 = self.embedding(x[2])
@@ -36,9 +39,9 @@ class NeuralLanguageModel(nn.Module):
         c = self.embedding(x)
 
         #concat = torch.cat((c1, c2, c3))
-        concat = c.flatten()
+        concat = c.flatten(start_dim=1, end_dim=2)
 
-        concat = nn.functional.tanh(concat)
+        concat = self.nonlin(concat)
 
         res = self.lin1(concat)
         logits = self.lin2(res)
@@ -46,17 +49,21 @@ class NeuralLanguageModel(nn.Module):
         return logits
 
     def generate(self, x, num_tokens):
+        assert x.shape[0] == self.context_size
+
         out_idx = []
         for _ in range(num_tokens):
-            probs = self.embedding(x).squeeze().softmax(dim=-1)
+            probs = self(x.unsqueeze(0)).squeeze().softmax(dim=-1)
             out = torch.multinomial(probs, 1)
             out_idx.append(out.item())
-            x = out
+            x = torch.cat([x[1:self.context_size], out])
 
         return out_idx
 
-
     def compute_loss(self, x: torch.Tensor, y: torch.Tensor):
+        assert len(x.shape) == 2 and x.shape[1] == self.context_size
+        assert len(y.shape) == 1 and y.shape[0] == x.shape[0]
+
         logits = self(x)
         loss = F.cross_entropy(logits, y)
         return loss.item()
@@ -93,7 +100,6 @@ class NeuralDataset(Dataset):
     def __getitem__(self, idx: int):
 
         x = self.data[idx:idx + self.context_size]
-
-        y = self.data[idx + self.context_size + 1]
+        y = self.data[idx + self.context_size]
 
         return x, y
