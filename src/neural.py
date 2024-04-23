@@ -29,16 +29,10 @@ class NeuralLanguageModel(nn.Module):
 
     def forward(
         self,
-        x, # [idx_1, idx_2, idx_3, ..., idx_context_size]
+        x,
     ):
         assert len(x.shape) == 2 and x.shape[1] == self.context_size
-        #c1 = self.embedding(x[0])
-        #c2 = self.embedding(x[1])
-        #c3 = self.embedding(x[2])
-
         c = self.embedding(x)
-
-        #concat = torch.cat((c1, c2, c3))
         concat = c.flatten(start_dim=1, end_dim=2)
 
         concat = self.nonlin(concat)
