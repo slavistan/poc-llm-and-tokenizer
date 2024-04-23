@@ -67,8 +67,6 @@ class NeuralLanguageModel(nn.Module):
         y,
         optimizer,
     ):
-        assert len(x.shape) == 1 and len(y.shape) == 1 and y.shape[0] == x.shape[0]
-
         self.train()
 
         logits = self(x)
